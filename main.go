@@ -1,7 +1,26 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
-func main (){
-	fmt.Println("Ta di daaa")
+func main() {
+	//load once
+	file, err := os.Open("messages.txt")
+	if err != nil {
+		fmt.Println("loading file error")
+	}
+
+	for {
+		chunk := make([]byte, 8)
+
+		n, err := file.Read(chunk)
+		if err != nil {
+			break
+		}
+		// fmt.Printf("read: %s\n", string(chunk))     // "Hello!\x00\x00" ❌
+		// fmt.Printf("read: %s\n", string(chunk[:n])) // "Hello!"
+		fmt.Printf("read: %s\n", string(chunk[:n]))
+	}
 }
