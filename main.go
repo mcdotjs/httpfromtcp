@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -17,6 +18,9 @@ func main() {
 
 		n, err := file.Read(chunk)
 		if err != nil {
+			if err == io.EOF{
+				break
+			}
 			break
 		}
 		// fmt.Printf("read: %s\n", string(chunk))     // "Hello!\x00\x00" ❌
