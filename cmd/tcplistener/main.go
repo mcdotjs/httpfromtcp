@@ -17,8 +17,10 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 		for {
 			chunk := make([]byte, 8)
 			n, err := f.Read(chunk)
-
 			if err != nil {
+				if line != "" {
+					ch <- line
+				}
 				if err == io.EOF {
 					// f.Close()
 					// close(ch)
@@ -26,20 +28,25 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 				}
 				// f.Close()
 				// close(ch)
-				break
+				//break
+				return 
 			}
 			str := string(chunk[:n])
 			parts := strings.Split(str, "\n")
-			if len(parts) == 1 {
-				line += parts[0]
-				continue
-			}
-			if len(parts) == 2 {
-				line += parts[0]
-				ch <- line
+
+			for i := 0; i < len(parts)-1; i++ {
+				ch <- fmt.Sprintf("%s%s", line, parts[i])
 				line = ""
-				line += parts[1]
 			}
+
+			line += parts[len(parts)-1]
+			// if len(parts) == 1 {
+			// 	line += parts[0]
+			// 	continue
+			// }
+			// if len(parts) == 2 {
+			// 	line += parts[0]
+			// }
 		}
 	}()
 	return ch

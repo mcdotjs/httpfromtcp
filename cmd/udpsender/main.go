@@ -24,8 +24,9 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print("> ")
-		str, err := reader.ReadString([]byte("\n")[0]) //???
-		//str, err := reader.ReadString('\n')
+		//str, err := reader.ReadString([]byte("\n")[0]) //???
+		//str, err := reader.ReadString(byte('\n')) //???
+		str, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
 			os.Exit(1)
