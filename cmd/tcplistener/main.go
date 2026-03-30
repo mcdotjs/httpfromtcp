@@ -29,16 +29,19 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 				// f.Close()
 				// close(ch)
 				//break
-				return 
+				return
 			}
+			//n je vaccinou 8, ale hocikedy to bude menej (alebo error)
 			str := string(chunk[:n])
+			//tu musim checknut kde konci lina
 			parts := strings.Split(str, "\n")
 
 			for i := 0; i < len(parts)-1; i++ {
+				//a to poslat chanellom vonku
 				ch <- fmt.Sprintf("%s%s", line, parts[i])
 				line = ""
 			}
-
+			// a prepandnut poslednu cast k dalsej line
 			line += parts[len(parts)-1]
 			// if len(parts) == 1 {
 			// 	line += parts[0]
