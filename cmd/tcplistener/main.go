@@ -4,9 +4,37 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mirectm/httpfromtcp/internal/request"
 	"net"
 	"strings"
 )
+
+func main() {
+	listener, err := net.Listen("tcp", ":42069")
+	if err != nil {
+		fmt.Println("listening error")
+	}
+	defer listener.Close()
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Fatalf("error: %s\n", err)
+		}
+		fmt.Println("connection has been accepted from", conn.RemoteAddr())
+
+		r, err := request.RequestFromReader(conn)
+		if err != nil {
+			fmt.Println("some req line error")
+		}
+		fmt.Println("Request line:")
+		fmt.Println("- Method:", r.RequestLine.Method)
+		fmt.Println("- Target:", r.RequestLine.RequestTarget)
+		fmt.Println("- Version:", r.RequestLine.HttpVersion)
+
+		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
+	}
+}
 
 func getLinesChannel(f io.ReadCloser) <-chan string {
 	ch := make(chan string)
@@ -53,27 +81,4 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 		}
 	}()
 	return ch
-}
-
-func main() {
-	listener, err := net.Listen("tcp", ":42069")
-	if err != nil {
-		fmt.Println("listening error")
-	}
-	defer listener.Close()
-
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Fatalf("error: %s\n", err)
-		}
-		fmt.Println("connection has been accepted from", conn.RemoteAddr())
-
-		ch := getLinesChannel(conn)
-		for line := range ch {
-			fmt.Println(line)
-		}
-
-		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
-	}
 }
