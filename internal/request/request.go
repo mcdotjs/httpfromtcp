@@ -25,14 +25,39 @@ const (
 	done
 )
 
-func ParseRequestLine(b []byte) (int, error) {
-	idxOfRegisteredNurse := bytes.Index(b, []byte(CRLF))
-	if idxOfRegisteredNurse == -1 {
+func parseRequestLine(b []byte) (*RequestLine, int, error) {
+	crlfIdx := bytes.Index(b, []byte(CRLF))
+	if crlfIdx == -1 {
 		//NOTE: ak nenajde crlf .... just give me more data :)
-		return 0, nil
+		return nil, 0, nil
 	}
+	requestLineText := string(b[:crlfIdx])
+	fmt.Println("requst line text: ", requestLineText)
+	reqLine, err := parseRequestLineFromString(requestLineText)
+	if err != nil {
+		return nil, 0, err
+	}
+	return reqLine, crlfIdx + 2, nil
+}
 
-	return idxOfRegisteredNurse, nil
+func (r *Request) parse(data []byte) (int, error) {
+	switch r.ParserState {
+	case initialized:
+		reqLine, parsedBytes, err := parseRequestLine(data)
+		if err != nil {
+			return 0, err
+		}
+		if parsedBytes == 0 {
+			return 0, nil
+		}
+		r.RequestLine = *reqLine
+		r.ParserState = done
+		return parsedBytes, nil
+	case done:
+		return 0, fmt.Errorf("error: parsing request is done")
+	default:
+		return 0, fmt.Errorf("error: unknown state")
+	}
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
@@ -41,17 +66,16 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	}
 	bufferSize := 8
 	readToIndex := 0
-	//parsedBytes1 := 0
 	buffer := make([]byte, bufferSize)
 	for r.ParserState != done {
 
 		if len(buffer) == readToIndex {
-			fmt.Printf("buffer growing: %q\n", buffer)
+			//fmt.Printf("buffer growing: %q\n", buffer)
 			bufferSize *= 2
 			temp := make([]byte, bufferSize)
 			copy(temp, buffer)
 			buffer = temp
-			fmt.Printf("buffer growing1: %q\n", buffer)
+			//fmt.Printf("buffer growing1: %q\n", buffer)
 		}
 		readBytes, err := reader.Read(buffer[readToIndex:])
 
@@ -64,59 +88,53 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			return nil, fmt.Errorf("error reading to buffer")
 		}
 
-		fmt.Printf("buffer: %q\n", buffer)
+		//	fmt.Printf("buffer: %q\n", buffer)
 		readToIndex += readBytes
-
-		parsedBytes, err := ParseRequestLine(buffer)
-
-		if parsedBytes != 0 {
-			r.ParserState = done
-
-			fmt.Println("out:", readToIndex, parsedBytes)
-			reqLine, err := ParseRequestLineFromString(string(buffer[:parsedBytes]))
-			fmt.Println("RESULT:", reqLine)
-			if err != nil {
-				return nil, fmt.Errorf("error parsing buffer : %v", err)
-			}
-
-			readToIndex -= parsedBytes
-			r.RequestLine = *reqLine
+		parsedBytes, err := r.parse(buffer[:readToIndex])
+		if err != nil {
+			return nil, err
 		}
+
+		fmt.Printf("buffer2: %q\n", buffer)
+		fmt.Printf("buffer2!!!: %q\n", buffer[parsedBytes:])
+		copy(buffer, buffer[parsedBytes:])
+		//NOTE: check notes
+		//buffer = buffer[parsedBytes:]
+		fmt.Printf("buffer3: %q\n", buffer)
+		readToIndex -= parsedBytes
 	}
 
 	//fmt.Printf("parsedBytesInt: %q\n", parsedBytesInt)
+	fmt.Println("___________________________________________________________________________")
 	return r, nil
 }
 
-func ParseRequestLineFromString(s string) (*RequestLine, error) {
-	//fmt.Println("S", s)
-	trimed := strings.TrimSuffix(s, "\r\n")
-	//fmt.Println("TrimSuffix", trimed)
-	splited := strings.Split(trimed, " ")
-	for i, s := range splited {
-		fmt.Printf("splited[%d]: %q\n", i, s)
+func parseRequestLineFromString(s string) (*RequestLine, error) {
+	parts := strings.Split(s, " ")
+	for i, s := range parts {
+		fmt.Printf("parts[%d]: %q\n", i, s)
 	}
-	if len(splited) != 3 {
-		return nil, fmt.Errorf("Bad request line, lengt has to be 3, provided length is %d", len(splited))
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("Bad request line, lengt has to be 3, provided length is %d", len(parts))
 	}
 
-	method := string(splited[0])
-	fmt.Printf("method: %q\n", method)
+	method := string(parts[0])
+	//fmt.Printf("method: %q\n", method)
 
-	for i, c := range method {
-		fmt.Printf("index=%d char=%c ascii=%d\n", i, c, c)
-	}
+	// for i, c := range method {
+	// 	fmt.Printf("index=%d char=%c ascii=%d\n", i, c, c)
+	// }
 	for _, c := range method {
 		if rune(c) < 'A' || rune(c) > 'Z' {
 			return nil, fmt.Errorf("invalid method: %s", method)
 		}
 	}
 
-	requestTarget := splited[1]
+	requestTarget := parts[1]
 	fmt.Printf("requestTarget: %q\n", requestTarget)
 
-	httpVersion := strings.Split(splited[2], "/")
-	fmt.Printf("httpVersion: %q\n", httpVersion[1])
+	httpVersion := strings.Split(parts[2], "/")
+	//fmt.Printf("httpVersion: %q\n", httpVersion[1])
 	if len(httpVersion) != 2 {
 		return nil, fmt.Errorf("Malformed starline... length is %d (has to be 2)", len(httpVersion))
 	}
