@@ -63,8 +63,13 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	lowerKey := strings.ToLower(keyString)
-	h[lowerKey] = strings.TrimSpace(valueString)
-
+	val, ok := h[lowerKey]
+	if !ok {
+		h[lowerKey] = strings.TrimSpace(valueString)
+	} else {
+		h[lowerKey] = fmt.Sprintf("%s,%s", val, strings.TrimSpace(valueString))
+	}
+	fmt.Println(h)
 	// l ... fmt.Println("LLLLLLL:", len(value)+len(key), crlfIdx)
 	//return l + 1 + 2, false, nil
 	return crlfIdx + 2, false, nil
