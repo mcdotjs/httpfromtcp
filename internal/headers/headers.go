@@ -3,6 +3,7 @@ package headers
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -14,10 +15,27 @@ func NewHeaders() Headers {
 
 const CRLF string = "\r\n"
 
-func (h Headers) Parse(data []byte) (n int, done bool, err error) {
-	stringData := string(data)
-	fmt.Printf("data: %q \n", stringData)
+var tokenChars = []byte{'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~'}
 
+func isValidString(data []byte) bool {
+	for _, c := range data {
+		if !isTokenChar(c) {
+			return false
+		}
+	}
+	return true
+}
+
+func isTokenChar(c byte) bool {
+	if (c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9') {
+		return true
+	}
+	return slices.Contains(tokenChars, c)
+}
+
+func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	crlfIdx := bytes.Index(data, []byte(CRLF))
 	if crlfIdx == -1 {
 		//not this return 0, false, fmt.Errorf("nemame CRLF index")
@@ -29,22 +47,23 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		// 2 just for /r/n
 		return 2, true, nil
 	}
-	colonIdx := bytes.Index(data, []byte(":"))
-	if colonIdx == -1 {
-		return 0, false, fmt.Errorf("nemame colon index")
+
+	parts := bytes.SplitN(data[:crlfIdx], []byte(":"), 2)
+
+	keyString := string(parts[0])
+	if keyString != strings.TrimRight(keyString, " ") {
+		return 0, false, fmt.Errorf("header key has space on right: %s", keyString)
+	}
+	valueString := string(parts[1])
+
+	//you have to trim key string then coerce it to []byte
+	keyString = strings.TrimSpace(keyString)
+	if !isValidString([]byte(keyString)) {
+		return 0, false, fmt.Errorf("Key has invalid symbol")
 	}
 
-	// parts := bytes.SplitN(data[:crlfIdx], []byte(":"), 2)
-	//
-	// fmt.Println("PARTS:", string(parts[0]), string(parts[1]))
-
-	key := string(data[:colonIdx])
-
-	if key != strings.TrimRight(key, " ") {
-		return 0, false, fmt.Errorf("Key has space")
-	}
-	value := string(data[colonIdx+1 : crlfIdx])
-	h[key] = strings.TrimSpace(value)
+	lowerKey := strings.ToLower(keyString)
+	h[lowerKey] = strings.TrimSpace(valueString)
 
 	// l ... fmt.Println("LLLLLLL:", len(value)+len(key), crlfIdx)
 	//return l + 1 + 2, false, nil
